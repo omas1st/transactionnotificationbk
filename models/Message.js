@@ -100,10 +100,19 @@ const messageSchema = new mongoose.Schema(
       required: true,
       trim: true,
       index: true,
-      match: [/^\d{10}$/, "Transaction number must be exactly 10 digits."],
+      match: [/^\d{16}$/, "Transaction No. must be exactly 16 digits."],
     },
     transactionDate: { type: Date, required: true, default: Date.now },
-    senderDetails: { type: String, default: "", trim: true, maxlength: 500 },
+
+    /* ── Sender details ───────────────────────────────────────────── */
+    senderBankName: { type: String, default: "", trim: true, maxlength: 200 },
+    senderAccountName: { type: String, default: "", trim: true, maxlength: 200 },
+    senderAccountNumber: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 60,
+    },
 
     /* ── Call to action ───────────────────────────────────────────── */
     closingMessage: { type: String, default: "", trim: true, maxlength: 2000 },
@@ -121,7 +130,6 @@ const messageSchema = new mongoose.Schema(
     },
 
     /* ── Appearance ───────────────────────────────────────────────── */
-    backgroundColor: { type: String, default: "#ffffff", trim: true },
     template: {
       type: String,
       enum: ALLOWED_TEMPLATES,

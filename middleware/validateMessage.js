@@ -1,7 +1,6 @@
 const {
   isValidEmail,
   isValidUrl,
-  isValidHexColor,
   parseRecipients,
   generateTransactionNumber,
 } = require("../utils/helpers");
@@ -111,8 +110,8 @@ const validateSendMessage = (req, res, next) => {
     ? body.transactionStatus
     : "Pending";
 
-  let transactionNumber = str(body.transactionNumber, 10).replace(/\D/g, "");
-  if (!/^\d{10}$/.test(transactionNumber)) {
+  let transactionNumber = str(body.transactionNumber, 16).replace(/\D/g, "");
+  if (!/^\d{16}$/.test(transactionNumber)) {
     transactionNumber = generateTransactionNumber();
   }
 
@@ -121,7 +120,10 @@ const validateSendMessage = (req, res, next) => {
     transactionDate = new Date();
   }
 
-  const senderDetails = str(body.senderDetails, 500);
+  /* Sender details */
+  const senderBankName = str(body.senderBankName, 200);
+  const senderAccountName = str(body.senderAccountName, 200);
+  const senderAccountNumber = str(body.senderAccountNumber, 60);
 
   /* Call to action */
   const closingMessage = str(body.closingMessage, MAX_BODY_LENGTH);
@@ -138,10 +140,6 @@ const validateSendMessage = (req, res, next) => {
   }
 
   /* Appearance */
-  const backgroundColor = isValidHexColor(body.backgroundColor)
-    ? String(body.backgroundColor).toLowerCase()
-    : "#ffffff";
-
   const template = ALLOWED_TEMPLATES.includes(body.template)
     ? body.template
     : "classic-blue";
@@ -176,11 +174,12 @@ const validateSendMessage = (req, res, next) => {
     transactionStatus,
     transactionNumber,
     transactionDate,
-    senderDetails,
+    senderBankName,
+    senderAccountName,
+    senderAccountNumber,
     closingMessage,
     buttonName,
     buttonLink,
-    backgroundColor,
     template,
   };
 

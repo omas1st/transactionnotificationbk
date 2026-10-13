@@ -81,14 +81,31 @@ const MIME_EXTENSIONS = {
 const extensionFromMime = (mimeType) =>
   MIME_EXTENSIONS[String(mimeType || "").toLowerCase()] || "png";
 
-/** Generates a random 10-digit transaction number (never starts with 0). */
+/** Generates a random 16-digit transaction number (never starts with 0). */
 const generateTransactionNumber = () => {
   let result = String(Math.floor(Math.random() * 9) + 1);
-  for (let i = 0; i < 9; i += 1) {
+  for (let i = 0; i < 15; i += 1) {
     result += String(Math.floor(Math.random() * 10));
   }
   return result;
 };
+
+/** Masks all but the last 4 characters of an account number. */
+const maskAccountNumber = (value) => {
+  const str = String(value === null || value === undefined ? "" : value).trim();
+  if (!str) return "";
+  if (str.length <= 4) return str;
+  return "*".repeat(str.length - 4) + str.slice(-4);
+};
+
+/** True when the message has any sender-detail content worth rendering. */
+const hasSenderDetails = (message) =>
+  Boolean(
+    message &&
+      (message.senderAccountName ||
+        message.senderBankName ||
+        message.senderAccountNumber)
+  );
 
 /* ------------------------------------------------------------------ */
 /*  Formatters                                                         */
@@ -159,6 +176,8 @@ module.exports = {
   parseDataUri,
   extensionFromMime,
   generateTransactionNumber,
+  maskAccountNumber,
+  hasSenderDetails,
   formatAmount,
   formatDateTime,
   resolveLogoSrc,
