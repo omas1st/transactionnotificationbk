@@ -1,12 +1,6 @@
 const nodemailer = require("nodemailer");
 const { buildEmailHtml, buildEmailText } = require("./emailTemplate");
-const {
-  parseDataUri,
-  extensionFromMime,
-  resolveLogoSrc,
-} = require("../utils/helpers");
-
-const LOGO_CID = "transaction-logo@noreply";
+const { resolveLogoSrc } = require("../utils/helpers");
 
 let transporter = null;
 
@@ -87,32 +81,15 @@ const getReplyTo = () => {
 };
 
 /**
- * Resolves the logo for the outgoing email.
- * Base64 uploads become inline CID attachments so they render in every
- * major client without being blocked as remote content.
+ * Resolves the mail assets for the outgoing email.
+ *
+ * Logos are always hosted (Cloudinary for uploads, direct URL for links),
+ * so no inline attachments are ever added. If the message has no logo
+ * URL, the email renders without one — no base64 or CID fallback exists.
  */
 const buildMailAssets = (message) => {
-  const attachments = [];
-
-  let logoSrc = resolveLogoSrc(message, null);
-
-  if (message.logoMode === "upload" && message.logoData) {
-    const parsed = parseDataUri(message.logoData);
-
-    if (parsed) {
-      attachments.push({
-        filename: `logo.${extensionFromMime(parsed.mimeType)}`,
-        content: Buffer.from(parsed.base64, "base64"),
-        contentType: parsed.mimeType,
-        cid: LOGO_CID,
-        contentDisposition: "inline",
-      });
-
-      logoSrc = `cid:${LOGO_CID}`;
-    }
-  }
-
-  return { attachments, logoSrc };
+  const logoSrc = resolveLogoSrc(message);
+  return { attachments: [], logoSrc };
 };
 
 /* ------------------------------------------------------------------ */
@@ -216,5 +193,4 @@ module.exports = {
   getTransporter,
   verifyMailer,
   sendBulkMail,
-  LOGO_CID,
 };

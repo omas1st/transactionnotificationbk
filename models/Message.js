@@ -47,8 +47,12 @@ const messageSchema = new mongoose.Schema(
     /* ── Branding ─────────────────────────────────────────────────── */
     logoMode: { type: String, enum: ["url", "upload"], default: "url" },
     logoUrl: { type: String, default: "", trim: true },
+    // Deprecated: retained only so older records still load without error.
     logoData: { type: String, default: "" },
-    logo: { type: String, default: "" },
+    // Authoritative hosted logo URL (Cloudinary for uploads, direct for links).
+    logo: { type: String, default: "", trim: true },
+    cloudinaryUrl: { type: String, default: "", trim: true },
+    cloudinaryPublicId: { type: String, default: "", trim: true },
 
     /* ── Content ──────────────────────────────────────────────────── */
     title: {

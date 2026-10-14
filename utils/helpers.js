@@ -151,17 +151,22 @@ const formatDateTime = (value) => {
   }
 };
 
-/** Resolves the logo source that should be rendered in the email body. */
-const resolveLogoSrc = (message, cid) => {
+/**
+ * Resolves the logo source that should be rendered in the email body.
+ *
+ * Uploads are hosted on Cloudinary; the hosted URL lives in `logo` (and
+ * is mirrored to `logoUrl`). No base64 or CID fallback exists any more —
+ * if Cloudinary upload failed, the stored URL is empty and no logo is
+ * rendered in the email.
+ */
+const resolveLogoSrc = (message) => {
   if (!message) return "";
 
-  if (message.logoMode === "upload" && message.logoData) {
-    const parsed = parseDataUri(message.logoData);
-    if (parsed && cid) return `cid:${cid}`;
-  }
+  const stored = String(message.logo || "").trim();
+  if (stored && !stored.startsWith("data:")) return stored;
 
-  if (message.logoUrl) return String(message.logoUrl).trim();
-  if (message.logo) return String(message.logo).trim();
+  const url = String(message.logoUrl || "").trim();
+  if (url && !url.startsWith("data:")) return url;
 
   return "";
 };

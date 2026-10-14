@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Message = require("../models/Message");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { sendBulkMail } = require("../services/mailer");
+const { uploadLogoFromDataUri } = require("../services/cloudinary");
 const { escapeRegex } = require("../utils/helpers");
 
 /* ------------------------------------------------------------------ */
@@ -10,24 +11,60 @@ const { escapeRegex } = require("../utils/helpers");
 
 /**
  * Persists the message, then attempts delivery to every recipient.
- * The record is written first so a failed send is still auditable.
+ *
+ * When the user uploaded a logo, the base64 payload is uploaded to
+ * Cloudinary first. If the upload fails, the message is still sent but
+ * without a logo — no base64 or inline CID fallback is used.
  */
 const sendMessage = asyncHandler(async (req, res) => {
   const payload = req.messagePayload;
 
-  /* 1 ─ Store the record with a `queued` status before sending. */
+  /* ── Step 1: Upload uploaded logos to Cloudinary ─────────────────── */
+  let cloudinaryUrl = "";
+  let cloudinaryPublicId = "";
+
+  if (payload.logoMode === "upload" && payload.logoData) {
+    try {
+      const info = await uploadLogoFromDataUri(
+        payload.logoData,
+        `logo-${payload.transactionNumber}`
+      );
+
+      cloudinaryUrl = info.url;
+      cloudinaryPublicId = info.publicId;
+
+      // Replace the base64 with the hosted URL so the email, DB record,
+      // and admin panel all reference the same asset.
+      payload.logo = cloudinaryUrl;
+      payload.logoUrl = cloudinaryUrl;
+    } catch (error) {
+      // No fallback — log the failure and send the email without a logo.
+      console.warn(
+        `Cloudinary upload failed for transaction ${payload.transactionNumber}: ${error.message}. ` +
+          "Message will be delivered without a logo."
+      );
+
+      cloudinaryUrl = "";
+      cloudinaryPublicId = "";
+      payload.logo = "";
+      payload.logoUrl = "";
+    }
+  }
+
+  /* ── Step 2: Store the record with a `queued` status ─────────────── */
   const record = await Message.create({
     ...payload,
-    // The raw base64 is kept only in `logo` for admin rendering.
+    // The base64 payload is never persisted.
     logoData: "",
+    cloudinaryUrl,
+    cloudinaryPublicId,
     deliveryStatus: "queued",
     deliveredTo: [],
     failedTo: [],
     deliveries: [],
   });
 
-  /* 2 ─ Attempt delivery using the in-memory payload (which still has
-         the original logo data needed for the inline attachment). */
+  /* ── Step 3: Attempt delivery ────────────────────────────────────── */
   let delivery;
 
   try {
@@ -60,7 +97,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     });
   }
 
-  /* 3 ─ Summarise the per-recipient results. */
+  /* ── Step 4: Summarise per-recipient results ─────────────────────── */
   const { results, messageIds } = delivery;
 
   const deliveredTo = results
@@ -97,8 +134,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     { new: true }
   );
 
-  /* 4 ─ Respond. A total failure is surfaced as 502 so the client can
-         keep the user on the preview screen. */
+  /* ── Step 5: Respond ─────────────────────────────────────────────── */
   const statusCode = deliveryStatus === "failed" ? 502 : 200;
 
   const message =
@@ -119,6 +155,7 @@ const sendMessage = asyncHandler(async (req, res) => {
       id: updated._id,
       title: updated.title,
       transactionNumber: updated.transactionNumber,
+      logoUrl: updated.logo,
       deliveredTo,
       failedTo,
       deliveryStatus,
